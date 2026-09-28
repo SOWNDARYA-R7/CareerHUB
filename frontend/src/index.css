@@ -508,3 +508,162 @@ footer {
     height: 200px;
   }
 }
+
+.learning-section {
+  max-width: 1400px;
+  margin: auto;
+  padding: 70px 6%;
+  border-top: 1px solid #d7e8f5;
+}
+
+.learning-search {
+  max-width: 680px;
+  height: 58px;
+  margin: 25px 0 35px;
+
+  display: flex;
+  align-items: center;
+
+  background: white;
+  border: 1px solid #8db9df;
+  border-radius: 10px;
+
+  padding: 5px;
+
+  box-shadow: 0 8px 25px rgba(39, 116, 199, 0.08);
+}
+
+.learning-search input {
+  flex: 1;
+  height: 100%;
+
+  border: none;
+  outline: none;
+
+  padding: 0 14px;
+
+  font-size: 14px;
+  color: #102a43;
+  background: transparent;
+}
+
+.learning-search input::placeholder {
+  color: #829ab1;
+}
+
+.learning-search button {
+  height: 46px;
+  padding: 0 23px;
+
+  border: none;
+  border-radius: 7px;
+
+  background: #2774c7;
+  color: white;
+
+  font-size: 14px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.learning-search button:hover {
+  background: #1769aa;
+}
+
+.learning-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.learning-card {
+  overflow: hidden;
+
+  background: white;
+  border: 1px solid #9fc4e5;
+  border-radius: 9px;
+
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.learning-card:hover {
+  transform: translateY(-4px);
+  border-color: #2774c7;
+  box-shadow: 0 10px 25px rgba(39, 116, 199, 0.12);
+}
+
+.learning-image-wrapper {
+  width: 100%;
+  height: 145px;
+  overflow: hidden;
+  background: #eaf5ff;
+}
+
+.learning-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+
+  transition: transform 0.3s ease;
+}
+
+.learning-card:hover .learning-image {
+  transform: scale(1.04);
+}
+
+.learning-placeholder {
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: #2774c7;
+  background: #eaf5ff;
+
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.learning-content {
+  padding: 13px;
+}
+
+.resource-type {
+  display: inline-block;
+
+  margin-bottom: 7px;
+
+  color: #2774c7;
+
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+.learning-content h3 {
+  color: #243b53;
+
+  font-size: 14px;
+  line-height: 1.45;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.learning-content p {
+  margin-top: 8px;
+
+  color: #829ab1;
+
+  font-size: 11px;
+}
