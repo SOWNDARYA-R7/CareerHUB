@@ -5,6 +5,7 @@ const { getJson } = require("serpapi");
 require("dotenv").config();
 
 const News = require("./models/News");
+const LearningResource = require("./models/LearningResource");
 
 const app = express();
 
@@ -89,6 +90,150 @@ app.get("/api/news", async (req, res) => {
 
     res.status(500).json({
       message: "Failed to fetch news",
+    });
+  }
+});
+
+function detectResourceType(title, link, source) {
+  const text = `${title} ${link} ${source}`.toLowerCase();
+
+  // Video
+  if (
+    text.includes("youtube") ||
+    text.includes("youtu.be") ||
+    text.includes("video")
+  ) {
+    return "Video";
+  }
+
+  // Course
+  if (
+    text.includes("coursera") ||
+    text.includes("udemy") ||
+    text.includes("edx") ||
+    text.includes("course") ||
+    text.includes("training")
+  ) {
+    return "Course";
+  }
+
+  // Tutorial
+  if (
+    text.includes("geeksforgeeks") ||
+    text.includes("w3schools") ||
+    text.includes("tutorial") ||
+    text.includes("guide") ||
+    text.includes("how to") ||
+    text.includes("how-to")
+  ) {
+    return "Tutorial";
+  }
+
+  // Documentation
+  if (
+    text.includes("documentation") ||
+    text.includes("docs") ||
+    text.includes("developer") ||
+    text.includes("reference")
+  ) {
+    return "Documentation";
+  }
+
+  // Project
+  if (
+    text.includes("github") ||
+    text.includes("gitlab") ||
+    text.includes("repository") ||
+    text.includes("project")
+  ) {
+    return "Project";
+  }
+
+  return "Article";
+}
+
+app.get("/api/learning", async (req, res) => {
+  try {
+    const { domain } = req.query;
+
+    if (!domain) {
+      return res.status(400).json({
+        message: "Domain is required",
+      });
+    }
+
+    const cleanDomain = domain.trim();
+
+    // Check 24-hour cache
+    const twentyFourHoursAgo = new Date(
+      Date.now() - 24 * 60 * 60 * 1000
+    );
+
+    const cachedResources = await LearningResource.find({
+      domain: cleanDomain.toLowerCase(),
+      createdAt: {
+        $gte: twentyFourHoursAgo,
+      },
+    }).sort({ createdAt: -1 });
+
+    // Cache hit
+    if (cachedResources.length > 0) {
+      console.log(`Learning cache hit: ${cleanDomain} 💾`);
+
+      return res.json({
+        source: "cache",
+        domain: cleanDomain,
+        resources: cachedResources,
+      });
+    }
+
+    // Cache miss → SerpApi
+    console.log(`Searching learning resources: ${cleanDomain} 🔍`);
+
+    const results = await getJson({
+      engine: "google",
+      q: `${cleanDomain} learning resources courses tutorials`,
+      api_key: process.env.SERPAPI_KEY,
+      timeout: 30000,
+    });
+
+    const organicResults = results.organic_results || [];
+
+    console.log("Total SerpApi results:",organicResults.length);
+
+    const formattedResources = organicResults.slice(0,100)
+    .map((item) => ({
+        domain: cleanDomain.toLowerCase(),
+        title: item.title || "",
+        link: item.link || "",
+        source: item.source || "",
+        thumbnail: item.thumbnail || "",
+        resourceType: detectResourceType(
+          item.title || "",
+          item.link || "",
+        ),
+      }));
+
+    // Remove expired resources for this domain
+    await LearningResource.deleteMany({
+      domain: cleanDomain.toLowerCase(),
+    });
+
+    // Store fresh results
+    if (formattedResources.length > 0) {
+      await LearningResource.insertMany(formattedResources);
+    }
+
+    res.json({
+      source: "serpapi",
+      domain: cleanDomain,
+      resources: formattedResources,
+    });
+  } catch (error) {
+    console.error("Learning API Error ❌", error);
+
+    res.status(500).json({
+      message: "Failed to fetch learning resources",
     });
   }
 });
