@@ -6,6 +6,7 @@ require("dotenv").config();
 
 const News = require("./models/News");
 const LearningResource = require("./models/LearningResource");
+const Internship = require("./models/Internship");
 
 const app = express();
 
@@ -252,6 +253,157 @@ app.get("/api/learning", async (req, res) => {
 
     return res.status(500).json({
       message: "Failed to fetch learning resources",
+    });
+  }
+});
+
+
+app.get("/api/internships", async (req, res) => {
+  try {
+    const { domain } = req.query;
+    const rawLocations = req.query.locations;
+    const rawModes = req.query.workModes;
+
+    // Validate domain
+    if (typeof domain !== "string" || !domain.trim()) {
+      return res.status(400).json({
+        message: "Domain is required",
+      });
+    }
+
+    // Process multiple locations
+    const locations = (Array.isArray(rawLocations)
+      ? rawLocations
+      : (rawLocations || "").split(","))
+      .map((item) => String(item).trim())
+      .filter(Boolean);
+
+    if (locations.length === 0) {
+      return res.status(400).json({
+        message: "At least one location is required",
+      });
+    }
+
+    // Process work modes
+    const allowedModes = ["on-site", "hybrid", "remote"];
+
+    const workModes = (Array.isArray(rawModes)
+      ? rawModes
+      : (rawModes || "").split(","))
+      .map((item) => String(item).trim().toLowerCase())
+      .filter((mode) => allowedModes.includes(mode));
+
+    const cleanDomain = domain.trim().toLowerCase();
+
+    const cleanLocations = [
+      ...new Set(locations.map((item) => item.toLowerCase())),
+    ].sort();
+
+    const cleanModes = [...new Set(workModes)].sort();
+
+    // Unique cache key for domain + locations + modes
+    const cacheKey = JSON.stringify({
+      domain: cleanDomain,
+      locations: cleanLocations,
+      workModes: cleanModes,
+    });
+
+    const now = new Date();
+
+    // Check valid 24-hour cache
+    const cached = await Internship.findOne({
+      cacheKey,
+      expiresAt: { $gt: now },
+    });
+
+    if (cached) {
+      console.log("Internship cache hit 💾");
+
+      return res.json({
+        source: "cache",
+        domain: cleanDomain,
+        locations: cleanLocations,
+        workModes: cleanModes,
+        internships: cached.internships,
+      });
+    }
+
+    console.log("Fetching internships from SerpApi 🔍");
+
+    // Build search query
+    const locationQuery = cleanLocations
+      .map((location) => `"${location}"`)
+      .join(" OR ");
+
+    const modeQuery = cleanModes.length > 0
+      ? `(${cleanModes.map((mode) => `"${mode}"`).join(" OR ")})`
+      : "";
+
+    const searchQuery =
+      `${cleanDomain} internships (${locationQuery}) ${modeQuery}`;
+
+    const results = await getJson({
+      engine: "google",
+      q: searchQuery,
+      api_key: process.env.SERPAPI_KEY,
+      timeout: 30000,
+    });
+
+    const organicResults = results.organic_results || [];
+
+    // Format results and remove duplicate links
+    const seenLinks = new Set();
+
+    const formattedInternships = organicResults
+      .filter((item) => {
+        if (!item.link || seenLinks.has(item.link)) {
+          return false;
+        }
+
+        seenLinks.add(item.link);
+        return true;
+      })
+      .map((item) => ({
+        title: item.title || "",
+        company: item.source || item.displayed_link || "",
+        location: "",
+        workMode: "",
+        description: item.snippet || "",
+        link: item.link,
+        source: item.displayed_link || "",
+      }));
+
+    // Remove expired cache for this search
+    await Internship.deleteMany({
+      cacheKey,
+      expiresAt: { $lte: now },
+    });
+
+    // Cache for 24 hours
+    const expiresAt = new Date(
+      Date.now() + 24 * 60 * 60 * 1000
+    );
+
+    await Internship.create({
+      domain: cleanDomain,
+      locations: cleanLocations,
+      cacheKey,
+      internships: formattedInternships,
+      expiresAt,
+    });
+
+    return res.json({
+      source: "serpapi",
+      domain: cleanDomain,
+      locations: cleanLocations,
+      workModes: cleanModes,
+      internships: formattedInternships,
+    });
+  } catch (error) {
+    console.error("Internship API Error ❌", error);
+
+    return res.status(500).json({
+      message: "Failed to fetch internships",
     });
   }
 });

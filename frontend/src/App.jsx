@@ -18,6 +18,29 @@ const [hasMore, setHasMore] = useState(false);
 const [loadingMore, setLoadingMore] = useState(false);
 const [loadMoreError, setLoadMoreError] = useState("");
 
+
+const [internships, setInternships] = useState([]);
+const [internshipLoading, setInternshipLoading] = useState(false);
+const [internshipError, setInternshipError] = useState("");
+
+const [selectedLocations, setSelectedLocations] = useState(["India"]);
+const [selectedModes, setSelectedModes] = useState([
+  "On-site",
+  "Hybrid",
+  "Remote",
+]);
+
+const internshipLocations = [
+  "India",
+  "Chennai",
+  "Bengaluru",
+  "Hyderabad",
+  "Coimbatore",
+  "Mumbai",
+  "Remote",
+  "Worldwide",
+];
+
   // Default images for learning resource types
   const resourceImages = {
     Course: "/resources/course.png",
@@ -148,6 +171,47 @@ const handleLoadMore = async () => {
   } finally {
     setLoadingMore(false);
   }
+};
+
+
+const handleInternshipSearch = async () => {
+  if (!domain.trim() || selectedLocations.length === 0 || internshipLoading) {
+    return;
+  }
+
+  setInternshipLoading(true);
+  setInternshipError("");
+  setInternships([]);
+
+  try {
+   const params = new URLSearchParams({
+  domain: domain.trim(),
+  locations: selectedLocations.join(","),
+  workModes: selectedModes.join(","),
+});
+
+    const response = await fetch(
+      `http://localhost:5000/api/internships?${params.toString()}`
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch internships");
+    }
+
+    const data = await response.json();
+    setInternships(data.internships || []);
+
+    document.getElementById("internships")?.scrollIntoView({
+      behavior: "smooth",
+    });
+  } catch (error) {
+  console.error("Internship Search Error:", error);
+  setInternshipError(
+    error.message || "Unable to load internships. Please try again."
+  );
+} finally {
+  setInternshipLoading(false);
+}
 };
 
   return (
@@ -351,6 +415,156 @@ const handleLoadMore = async () => {
             )}
         </section>
 
+        
+
+{/* Internship Section */}
+<section className="internship-section" id="internships">
+  <div className="section-heading">
+    <div>
+      <p className="section-label">EXPLORE OPPORTUNITIES</p>
+      <h2>Domain Internships</h2>
+      <p>
+        Find internships based on your domain, preferred locations
+        and work modes.
+      </p>
+    </div>
+  </div>
+
+  <div className="internship-search">
+    <h3>Preferred Locations</h3>
+
+    <div className="location-options">
+      {internshipLocations.map((location) => (
+        <label key={location} className="location-option">
+          <input
+            type="checkbox"
+            checked={selectedLocations.includes(location)}
+            onChange={(e) => {
+              setSelectedLocations((previous) =>
+                e.target.checked
+                  ? location === "Worldwide"
+                    ? ["Worldwide"]
+                    : [
+                        ...previous.filter(
+                          (item) => item !== "Worldwide"
+                        ),
+                        location,
+                      ]
+                  : previous.filter((item) => item !== location)
+              );
+            }}
+          />
+          {location}
+        </label>
+      ))}
+    </div>
+
+    <h3>Work Mode</h3>
+
+    <div className="location-options">
+      {["On-site", "Hybrid", "Remote"].map((mode) => (
+        <label key={mode} className="location-option">
+          <input
+            type="checkbox"
+            checked={selectedModes.includes(mode)}
+            onChange={(e) => {
+              setSelectedModes((previous) =>
+                e.target.checked
+                  ? [...previous, mode]
+                  : previous.filter((item) => item !== mode)
+              );
+            }}
+          />
+          {mode}
+        </label>
+      ))}
+    </div>
+
+    <button
+      onClick={handleInternshipSearch}
+      disabled={
+        internshipLoading ||
+        !domain.trim() ||
+        selectedLocations.length === 0 ||
+        selectedModes.length === 0
+      }
+    >
+      {internshipLoading ? "Searching..." : "Find Internships"}
+    </button>
+  </div>
+
+  {internshipLoading && (
+    <div className="status">
+      <div className="loader"></div>
+      <p>Finding internships...</p>
+    </div>
+  )}
+
+  {internshipError && (
+    <div className="error">{internshipError}</div>
+  )}
+
+  {!internshipLoading &&
+    !internshipError &&
+    internships.length > 0 && (
+      <div className="internship-grid">
+        {internships.map((item, index) => (
+          
+<article
+  className="internship-card"
+  key={item.link || index}
+>
+  <div className="internship-card-top">
+    <span className="internship-tag">Internship</span>
+    <icon-placeholder />
+  </div>
+
+  <h3>{item.title}</h3>
+
+  <p className="internship-company">
+    <span className="meta-icon">▣</span>
+    {item.company || "Company not specified"}
+  </p>
+
+  <div className="internship-meta">
+    <span>
+      <span className="meta-icon">⌖</span>
+      {item.location || "Location not specified"}
+    </span>
+    <span>
+      <span className="meta-icon">◷</span>
+      {item.workMode || "Work mode not specified"}
+    </span>
+  </div>
+
+  <p className="internship-description">
+    {item.description || "View the original listing for more details."}
+  </p>
+
+  <div className="internship-card-footer">
+    <a
+      href={item.link}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      View Opportunity <span>↗</span>
+    </a>
+  </div>
+</article>
+        ))}
+      </div>
+    )}
+
+  {!internshipLoading &&
+    !internshipError &&
+    internships.length === 0 && (
+      <p className="learning-empty">
+        Enter a domain above, select locations and work modes,
+        then find internships.
+      </p>
+    )}
+</section>
+
         {/* News */}
         <section className="news-section" id="news">
           <div className="section-heading">
@@ -411,17 +625,6 @@ const handleLoadMore = async () => {
           )}
         </section>
 
-        {/* Future Internship Section */}
-        <section className="coming-section" id="internships">
-          <p className="section-label">COMING NEXT</p>
-
-          <h2>Domain Internships</h2>
-
-          <p>
-            Discover internship opportunities related to your
-            skills and career interests.
-          </p>
-        </section>
       </main>
 
       {/* Footer */}
