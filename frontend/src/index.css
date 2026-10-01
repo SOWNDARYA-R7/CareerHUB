@@ -667,3 +667,68 @@ footer {
 
   font-size: 11px;
 }
+
+
+.resource-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 25px 0;
+}
+
+.filter-btn {
+  padding: 9px 16px;
+  border: 1px solid #a8c9e8;
+  border-radius: 20px;
+  background: #fff;
+  color: #315779;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-btn:hover {
+  border-color: #2774c7;
+  background: #edf6ff;
+}
+
+.filter-btn.active {
+  background: #2774c7;
+  border-color: #2774c7;
+  color: #fff;
+}
+
+.no-resources {
+  padding: 30px 0;
+  text-align: center;
+  color: #829ab1;
+}
+
+
+.load-more-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 32px;
+}
+
+.load-more-btn {
+  padding: 12px 28px;
+  border: 1px solid #1e40af;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.load-more-btn:hover:not(:disabled) {
+  background: #1e40af;
+}
+
+.load-more-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

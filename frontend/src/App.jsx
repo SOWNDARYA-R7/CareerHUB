@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import "./index.css";
 
@@ -10,6 +11,12 @@ function App() {
   const [learningLoading, setLearningLoading] = useState(false);
   const [learningError, setLearningError] = useState("");
   const [domain, setDomain] = useState("");
+  const [activeFilter, setActiveFilter] = useState("All");
+  
+const [page, setPage] = useState(1);
+const [hasMore, setHasMore] = useState(false);
+const [loadingMore, setLoadingMore] = useState(false);
+const [loadMoreError, setLoadMoreError] = useState("");
 
   // Default images for learning resource types
   const resourceImages = {
@@ -21,6 +28,26 @@ function App() {
     Article: "/resources/article.png",
   };
 
+  // Resource filter types
+  const resourceTypes = [
+    "All",
+    "Course",
+    "Tutorial",
+    "Documentation",
+    "Video",
+    "Project",
+    "Article",
+  ];
+
+  // Filter learning resources
+  const filteredResources =
+    activeFilter === "All"
+      ? learningResources
+      : learningResources.filter(
+          (resource) =>
+            (resource.resourceType || "Article") === activeFilter
+        );
+
   // Fetch news
   useEffect(() => {
     fetch("http://localhost:5000/api/news")
@@ -28,7 +55,6 @@ function App() {
         if (!response.ok) {
           throw new Error("Failed to fetch news");
         }
-
         return response.json();
       })
       .then((data) => {
@@ -43,38 +69,86 @@ function App() {
   }, []);
 
   // Search learning resources
-  const handleLearningSearch = async () => {
-    if (!domain.trim()) return;
+  
+const handleLearningSearch = async () => {
+  if (!domain.trim() || learningLoading) return;
 
-    setLearningLoading(true);
-    setLearningError("");
+  setLearningLoading(true);
+  setLearningError("");
+  setLearningResources([]);
+  setActiveFilter("All");
+  setPage(1);
+  setHasMore(false);
 
-    try {
-      const response = await fetch(
-        `http://localhost:5000/api/learning?domain=${encodeURIComponent(
-          domain.trim()
-        )}`
+  try {
+    const response = await fetch(
+      `http://localhost:5000/api/learning?domain=${encodeURIComponent(
+        domain.trim()
+      )}&page=1`
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch learning resources");
+    }
+
+    const data = await response.json();
+
+    setLearningResources(data.resources || []);
+    setPage(data.page || 1);
+    setHasMore(data.hasMore || false);
+
+    document.getElementById("learning")?.scrollIntoView({
+      behavior: "smooth",
+    });
+  } catch (error) {
+    console.error(error);
+    setLearningError("Unable to load learning resources");
+  } finally {
+    setLearningLoading(false);
+  }
+};
+
+
+const handleLoadMore = async () => {
+  if (loadingMore || !hasMore || !domain.trim()) return;
+
+  const nextPage = page + 1;
+
+  setLoadingMore(true);
+  setLoadMoreError("");
+
+  try {
+    const response = await fetch(
+      `http://localhost:5000/api/learning?domain=${encodeURIComponent(
+        domain.trim()
+      )}&page=${nextPage}`
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to load more resources");
+    }
+
+    const data = await response.json();
+    const newResources = data.resources || [];
+
+    setLearningResources((previous) => {
+      const existingLinks = new Set(previous.map((item) => item.link));
+      const uniqueNewResources = newResources.filter(
+        (item) => !existingLinks.has(item.link)
       );
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch learning resources");
-      }
+      return [...previous, ...uniqueNewResources];
+    });
 
-      const data = await response.json();
-
-      setLearningResources(data.resources || []);
-
-      // Move to learning section after search
-      document.getElementById("learning")?.scrollIntoView({
-        behavior: "smooth",
-      });
-    } catch (error) {
-      console.error(error);
-      setLearningError("Unable to load learning resources");
-    } finally {
-      setLearningLoading(false);
-    }
-  };
+    setPage(data.page || nextPage);
+    setHasMore(data.hasMore || false);
+  } catch (error) {
+    console.error(error);
+    setLoadMoreError("Unable to load more resources. Please try again.");
+  } finally {
+    setLoadingMore(false);
+  }
+};
 
   return (
     <div className="app">
@@ -94,11 +168,13 @@ function App() {
         </div>
       </nav>
 
-      {/* Hero */}
       <main>
+        {/* Hero */}
         <section className="hero">
           <div className="hero-content">
-            <p className="eyebrow">YOUR CAREER JOURNEY STARTS HERE</p>
+            <p className="eyebrow">
+              YOUR CAREER JOURNEY STARTS HERE
+            </p>
 
             <h1>
               Learn. Explore.
@@ -127,8 +203,11 @@ function App() {
                 }}
               />
 
-              <button onClick={handleLearningSearch}>
-                Search
+              <button
+                onClick={handleLearningSearch}
+                disabled={learningLoading || !domain.trim()}
+              >
+                {learningLoading ? "Searching..." : "Search"}
               </button>
             </div>
           </div>
@@ -143,6 +222,36 @@ function App() {
             </div>
           </div>
 
+          {/* Filter Buttons */}
+          {!learningLoading &&
+            !learningError &&
+            learningResources.length > 0 && (
+              <div className="resource-filters">
+                {resourceTypes.map((type) => {
+                  const count =
+                    type === "All"
+                      ? learningResources.length
+                      : learningResources.filter(
+                          (resource) =>
+                            (resource.resourceType || "Article") === type
+                        ).length;
+
+                  return (
+                    <button
+                      key={type}
+                      className={`filter-btn ${
+                        activeFilter === type ? "active" : ""
+                      }`}
+                      onClick={() => setActiveFilter(type)}
+                    >
+                      {type} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+          {/* Loading */}
           {learningLoading && (
             <div className="status">
               <div className="loader"></div>
@@ -150,12 +259,14 @@ function App() {
             </div>
           )}
 
+          {/* Error */}
           {learningError && (
             <div className="error">
               {learningError}
             </div>
           )}
 
+          {/* Initial Empty State */}
           {!learningLoading &&
             !learningError &&
             learningResources.length === 0 && (
@@ -166,52 +277,77 @@ function App() {
               </div>
             )}
 
+          {/* Filtered Resources */}
           {!learningLoading &&
             !learningError &&
             learningResources.length > 0 && (
-              <div className="learning-grid">
-                {learningResources.map((resource, index) => {
-                  const fallbackImage =
-                    resourceImages[resource.resourceType] ||
-                    resourceImages.Article;
+              <>
+                {filteredResources.length > 0 ? (
+                  <div className="learning-grid">
+                    {filteredResources.map((resource, index) => {
+                      const type = resource.resourceType || "Article";
+                      const fallbackImage =
+                        resourceImages[type] || resourceImages.Article;
 
-                  return (
-                    <a
-                      key={resource._id || index}
-                      href={resource.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="learning-card"
+                      return (
+                        <a
+                          key={resource._id || index}
+                          href={resource.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="learning-card"
+                        >
+                          {/* Resource Image */}
+                          <div className="learning-image-wrapper">
+                            <img
+                              src={resource.thumbnail || fallbackImage}
+                              alt={resource.title || type}
+                              className="learning-image"
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = fallbackImage;
+                              }}
+                            />
+                          </div>
+
+                          {/* Resource Content */}
+                          <div className="learning-content">
+                            <span className="resource-type">
+                              {type}
+                            </span>
+
+                            <h3>{resource.title}</h3>
+
+                            {resource.source && (
+                              <p>{resource.source}</p>
+                            )}
+                          </div>
+                        </a>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="no-resources">
+                    No {activeFilter.toLowerCase()} resources found.
+                  </p>
+                )}
+                
+                {hasMore && (
+                  <div className="load-more-container">
+                    <button
+                      className="load-more-btn"
+                      onClick={handleLoadMore}
+                      disabled={loadingMore}
                     >
-                      {/* Resource Image */}
-                      <div className="learning-image-wrapper">
-                        <img
-                          src={resource.thumbnail || fallbackImage}
-                          alt={resource.title}
-                          className="learning-image"
-                          onError={(e) => {
-                            e.currentTarget.onerror = null;
-                            e.currentTarget.src = fallbackImage;
-                          }}
-                        />
-                      </div>
+                      {loadingMore ? "Loading..." : "Load More"}
+                    </button>
+                  </div>
+                )}
 
-                      {/* Resource Content */}
-                      <div className="learning-content">
-                        <span className="resource-type">
-                          {resource.resourceType || "Article"}
-                        </span>
-
-                        <h3>{resource.title}</h3>
-
-                        {resource.source && (
-                          <p>{resource.source}</p>
-                        )}
-                      </div>
-                    </a>
-                  );
-                })}
-              </div>
+                {loadMoreError && (
+                  <p className="error">{loadMoreError}</p>
+                )}
+              </>
             )}
         </section>
 
@@ -245,7 +381,7 @@ function App() {
                   href={item.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  key={index}
+                  key={item._id || index}
                 >
                   <div className="news-image-wrapper">
                     {item.thumbnail ? (

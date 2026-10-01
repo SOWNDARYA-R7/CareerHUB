@@ -152,87 +152,105 @@ function detectResourceType(title, link, source) {
   return "Article";
 }
 
+
 app.get("/api/learning", async (req, res) => {
   try {
     const { domain } = req.query;
+    const page = Number.parseInt(req.query.page || "1", 10);
+    const limit = 10;
 
-    if (!domain) {
+    if (!domain || !domain.trim()) {
       return res.status(400).json({
         message: "Domain is required",
       });
     }
 
-    const cleanDomain = domain.trim();
+    if (!Number.isInteger(page) || page < 1) {
+      return res.status(400).json({
+        message: "Page must be a positive number",
+      });
+    }
 
-    // Check 24-hour cache
+    const cleanDomain = domain.trim().toLowerCase();
+    const start = (page - 1) * limit;
+
     const twentyFourHoursAgo = new Date(
       Date.now() - 24 * 60 * 60 * 1000
     );
 
+    // Check cache for this specific domain and page
     const cachedResources = await LearningResource.find({
-      domain: cleanDomain.toLowerCase(),
-      createdAt: {
-        $gte: twentyFourHoursAgo,
-      },
-    }).sort({ createdAt: -1 });
+      domain: cleanDomain,
+      page,
+      createdAt: { $gte: twentyFourHoursAgo },
+    }).sort({ createdAt: 1 });
 
-    // Cache hit
     if (cachedResources.length > 0) {
-      console.log(`Learning cache hit: ${cleanDomain} 💾`);
+      console.log(`Learning cache hit: ${cleanDomain}, page ${page} 💾`);
 
       return res.json({
         source: "cache",
         domain: cleanDomain,
+        page,
+        limit,
         resources: cachedResources,
+        hasMore: cachedResources[0].hasMore,
       });
     }
 
-    // Cache miss → SerpApi
-    console.log(`Searching learning resources: ${cleanDomain} 🔍`);
+    console.log(`Fetching ${cleanDomain}, page ${page} from SerpApi 🔍`);
 
     const results = await getJson({
       engine: "google",
-      q: `${cleanDomain} learning resources courses tutorials`,
+      q: `${cleanDomain} learning resources courses tutorials videos pdf files`,
+      start,
+      num: limit,
       api_key: process.env.SERPAPI_KEY,
       timeout: 30000,
     });
 
     const organicResults = results.organic_results || [];
+     
+    const hasMore = Boolean(results.serpapi_pagination?.next);
 
-    console.log("Total SerpApi results:",organicResults.length);
+    const formattedResources = organicResults.slice(0, limit).map((item) => ({
+      domain: cleanDomain,
+      page,
+      hasMore,
+      title: item.title || "",
+      link: item.link || "",
+      source: item.source || "",
+      thumbnail: item.thumbnail || "",
+      resourceType: detectResourceType(
+        item.title || "",
+        item.link || "",
+        item.source || ""
+      ),
+    }));
 
-    const formattedResources = organicResults.slice(0,100)
-    .map((item) => ({
-        domain: cleanDomain.toLowerCase(),
-        title: item.title || "",
-        link: item.link || "",
-        source: item.source || "",
-        thumbnail: item.thumbnail || "",
-        resourceType: detectResourceType(
-          item.title || "",
-          item.link || "",
-        ),
-      }));
-
-    // Remove expired resources for this domain
+    // Remove only expired records for this domain and page
     await LearningResource.deleteMany({
-      domain: cleanDomain.toLowerCase(),
+      domain: cleanDomain,
+      page,
+      createdAt: { $lt: twentyFourHoursAgo },
     });
 
-    // Store fresh results
     if (formattedResources.length > 0) {
       await LearningResource.insertMany(formattedResources);
     }
 
-    res.json({
+    return res.json({
       source: "serpapi",
       domain: cleanDomain,
+      page,
+      limit,
       resources: formattedResources,
+      hasMore,
     });
   } catch (error) {
     console.error("Learning API Error ❌", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Failed to fetch learning resources",
     });
   }
