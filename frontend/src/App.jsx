@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from "react";
 import "./index.css";
+import CareerGuide from "./CareerGuide";
 
 function App() {
   const [news, setNews] = useState([]);
@@ -624,7 +625,7 @@ const handleInternshipSearch = async () => {
             </div>
           )}
         </section>
-
+       <CareerGuide />
       </main>
 
       {/* Footer */}
