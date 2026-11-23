@@ -74,7 +74,7 @@ const internshipLocations = [
 
   // Fetch news
   useEffect(() => {
-    fetch("http://localhost:5000/api/news")
+    fetch(`${import.meta.env.VITE_API_URL}/api/news`)
       .then((response) => {
         if (!response.ok) {
           throw new Error("Failed to fetch news");
