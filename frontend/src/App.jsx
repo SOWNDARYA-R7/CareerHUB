@@ -106,7 +106,7 @@ const handleLearningSearch = async () => {
 
   try {
     const response = await fetch(
-      `http://localhost:5000/api/learning?domain=${encodeURIComponent(
+      `${import.meta.env.VITE_API_URL}/api/learning?domain=${encodeURIComponent(
         domain.trim()
       )}&page=1`
     );
@@ -143,7 +143,7 @@ const handleLoadMore = async () => {
 
   try {
     const response = await fetch(
-      `http://localhost:5000/api/learning?domain=${encodeURIComponent(
+      `${import.meta.env.VITE_API_URL}/api/learning?domain=${encodeURIComponent(
         domain.trim()
       )}&page=${nextPage}`
     );
@@ -192,7 +192,7 @@ const handleInternshipSearch = async () => {
 });
 
     const response = await fetch(
-      `http://localhost:5000/api/internships?${params.toString()}`
+      `${import.meta.env.VITE_API_URL}/api/internships?${params.toString()}`
     );
 
     if (!response.ok) {
